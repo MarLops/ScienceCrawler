@@ -91,12 +91,12 @@ class PubmedArticle:
 
     @functools.cached_property
     def cited_number(self):
-        cited =  self._page_detail.find('div',{"id":"citedby"})
+        cited =  self._page_soup.find('div',{"id":"citedby"})
         return cited.find('em',{"class":"amount"}).text
 
     @functools.cached_property
     def cited_articles(self):
-        cited =  self._page_detail.find('div',{"id":"citedby"})
+        cited =  self._page_soup.find('div',{"id":"citedby"})
         response = list()
         for art in cited.find_all('li',{"class":"full-docsum"}):
             response.append(art.find('a',{"class":"docsum-title"}).text.strip())
