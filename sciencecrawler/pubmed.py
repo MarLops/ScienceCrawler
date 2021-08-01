@@ -99,7 +99,13 @@ class PubmedArticle:
 
     @functools.cached_property
     def authors(self):
-        return [author.find('a',{"class":"full-name"}).text for author in self._infos.find_all('span',{"class":"authors-list-item"})]
+        spans =  self._infos.find_all('span',{"class":"authors-list-item"})
+        response = list()
+        for span in spans:
+            author = span.find('a',{"class":"full-name"}).text
+            indices = span.find_all('a',{"class":"affiliation-link"})
+            response.append({"author":author,"indices":[int(indice.text) for indice in indices]})
+        return response
 
     @property
     def date(self):
@@ -117,6 +123,33 @@ class PubmedArticle:
         for art in cited.find_all('li',{"class":"full-docsum"}):
             response.append(art.find('a',{"class":"docsum-title"}).text.strip())
         return response
+
+    @functools.cached_property
+    def affiliation(self):
+        div_aff = self._page_soup.find('div',{"id":"full-view-expanded-authors"})
+        lis = div_aff.find_all('li')
+        response = list()
+        for li in lis:
+            name = li.text
+            key = li.find('sup').text
+            response.append({"affiliation":name,"indice":int(key)})
+        return response
+
+    
+    @functools.cached_property
+    def author_affilition(self):
+        authors = self.authors
+        affilition = self.affiliation
+        response = list()
+        for author in authors:
+            name_author = author['author']
+            indices = author['indices']
+            affiliton_name = list()
+            for indice in indices:
+                affiliton_name.append(affilition[indice]["affiliation"])
+            response.append({"author":name_author,"affilition":affiliton_name})
+        return response
+
 
 
     @functools.cached_property
