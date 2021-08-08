@@ -1,10 +1,12 @@
 import functools
 import time
+from typing import List
 import requests
 from bs4 import BeautifulSoup
+from .src.base import SearchBase,ArticleBase
 
 
-class PubmedSearch:
+class PubmedSearch(SearchBase):
     """
     """
     def __init__(self, term):
@@ -71,8 +73,12 @@ class PubmedSearch:
     def __repr__(self) -> str:
         return f'term: {self._term} / page - {self._page}'
 
+    @property
+    def search_term(self):
+        return self._term
 
-class PubmedArticle:
+
+class PubmedArticle(ArticleBase):
     """
     """
     def __init__(self, url):
@@ -83,13 +89,16 @@ class PubmedArticle:
 
     @functools.cached_property
     def publication_type(self):
-        return self._infos.find('div',{"class":"publication-type"}).text
+        try:
+            return self._infos.find('div',{"class":"publication-type"}).text
+        except:
+            return None
 
     @functools.cached_property
     def journal(self):
        return  self._infos.find('button',{"id":"full-view-journal-trigger"})['title']
 
-    @functools.cached_property
+    @property
     def doi(self):
         return self._infos.find('span',{"class":"citation-doi"}).text.strip()
 
@@ -97,14 +106,14 @@ class PubmedArticle:
     def title(self):
         return self._infos.find('h1',{"class":"heading-title"}).text.strip()
 
-    @functools.cached_property
+    @property
     def authors(self):
         spans =  self._infos.find_all('span',{"class":"authors-list-item"})
         response = list()
         for span in spans:
             author = span.find('a',{"class":"full-name"}).text
             indices = span.find_all('a',{"class":"affiliation-link"})
-            response.append({"author":author,"indices":[int(indice.text) for indice in indices]})
+            response.append({"author":author,"index":[int(indice.text) for indice in indices]})
         return response
 
     @property
@@ -132,7 +141,7 @@ class PubmedArticle:
         for li in lis:
             name = li.text
             key = li.find('sup').text
-            response.append({"affiliation":name,"indice":int(key)})
+            response.append({"affiliation":name[2:],"index":int(key)})
         return response
 
     
@@ -143,10 +152,10 @@ class PubmedArticle:
         response = list()
         for author in authors:
             name_author = author['author']
-            indices = author['indices']
+            indices = author['index']
             affiliton_name = list()
             for indice in indices:
-                affiliton_name.append(affilition[indice]["affiliation"])
+                affiliton_name.append(affilition[indice - 1]["affiliation"])
             response.append({"author":name_author,"affilition":affiliton_name})
         return response
 
@@ -157,18 +166,20 @@ class PubmedArticle:
         try:
             abstract = self._page_soup.find('div',{"id":"abstract"})
             abstract_text = abstract.find('div',{"id":"enc-abstract"}).find_all('p')
-            return [i.text.replace("\n","").strip() for i in abstract_text]
+            return "<sep>".join([i.text.replace("\n","").strip() for i in abstract_text])
         except:
-            raise ValueError("No abstract")
+            return None
 
     @functools.cached_property
     def keywords(self):
         try:
             abstract = self._page_soup.find('div',{"id":"abstract"})
-            keywords = abstract.findChildren('p').text
-            return keywords
+            keywords = abstract.findChildren('p')[-1].text.replace("\n","").strip()
+            if "Keywords: " in keywords:
+                return keywords
+            return None
         except:
-            raise ValueError('No keywords')
+            return None
 
     def __repr__(self) -> str:
         return f'Tile: {self.title} | url : {self.url}' 
@@ -176,7 +187,7 @@ class PubmedArticle:
     def __str__(self):
         return f'Tile: {self.title} | url : {self.url}' 
 
-    def get_references_name(self):
+    def get_references_name(self) -> List[str]:
         url_reference = self.url + "/references/"
         references = requests.get(url_reference)
         if references.status_code >= 300:
@@ -189,7 +200,7 @@ class PubmedArticle:
         return [i.find('li',{'class':"skip-numbering"}).text.replace("\n","").split("  -   ")[0].strip() for i in ols]
         
     
-    def get_references(self,interval_requests: int=2):
+    def get_references(self,interval_requests: int=2) -> List:
         url_reference = self.url + "/references/"
         references = requests.get(url_reference)
         if references.status_code >= 300:
@@ -215,6 +226,29 @@ class PubmedArticle:
                     time.sleep(interval_requests)
             except:
                 pass
+        return response
+
+    @functools.cached_property
+    def conflict_of_interest(self):
+        div_conflict = self._page_soup.find('div',{"id":"conflict-of-interest"})
+        if div_conflict is None:
+            return None
+        return div_conflict.find('p').text
+
+    def to_json(self):
+        response = dict()
+        response['authors'] = self.author_affilition
+        response['title'] = self.title
+        response['references'] = self.get_references_name()
+        response['doi'] = self.doi
+        response['journal'] = self.journal
+        response['type'] = self.publication_type
+        response['date'] = self.date
+        response['abstract'] = self.abstract
+        response['conflict'] = self.conflict_of_interest
+        response['cited_articles'] = self.cited_articles
+        response['keywords'] = self.keywords
+        response['url'] = self.url
         return response
 
 
