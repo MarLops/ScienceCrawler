@@ -6,77 +6,6 @@ from bs4 import BeautifulSoup
 from .src.base import SearchBase,ArticleBase
 
 
-class PubmedSearch(SearchBase):
-    """
-    """
-    def __init__(self, term):
-        params = dict()
-        self._term = term
-        self._page = 1
-        params = dict()
-        params['term'] = term
-        params['page'] = 1
-        response = requests.get('https://pubmed.ncbi.nlm.nih.gov/',params=params)
-        self.reponse_status = response.status_code
-        if response.status_code < 300:
-            self._page_soup = BeautifulSoup(response.content, 'html.parser')
-            try:
-                total = self._page_soup.find('div',{"class":"results-amount-container"}).find('span').text
-                self.total_search = int(total.replace(",",""))
-            except:
-                self.total_search = None
-        else:
-            self._page_soup = None
-            self.total_search = None
-        
-
-    def get_list_articles(self, interval_requests:int = 2):
-        if self._page_soup is not None:
-            articles = self._page_soup.find_all('article',{"class":"full-docsum"})
-            links = ["https://pubmed.ncbi.nlm.nih.gov" + article.find('a',{'class':'docsum-title'})['href'] for article in articles]
-            response = list()
-            for link in links:
-                response.append(PubmedArticle(link))
-                time.sleep(interval_requests)
-            return response
-    
-    def get_next_page(self):
-        self._page =self._page + 1
-        params = dict()
-        params['term'] = self._term
-        params['page'] = self._page
-        response = requests.get('https://pubmed.ncbi.nlm.nih.gov/',params=params)
-        self.reponse_status = response.status_code
-        if response.status_code < 300:
-            self._page_soup = BeautifulSoup(response.content, 'html.parser')
-        else:
-            self._page_soup = None
-
-    @property
-    def current_page(self):
-        return self._page
-
-    def go_to_page(self,page: int):
-        if page < 1:
-            raise ValueError('page isn ok')
-        self._page = page
-        params = dict()
-        params['term'] = self._term
-        params['page'] = self._page
-        response = requests.get('https://pubmed.ncbi.nlm.nih.gov/',params=params)
-        self.reponse_status = response.status_code
-        if response.status_code < 300:
-            self._page_soup = BeautifulSoup(response.content, 'html.parser')
-        else:
-            self._page_soup = None
-
-    def __repr__(self) -> str:
-        return f'term: {self._term} / page - {self._page}'
-
-    @property
-    def search_term(self):
-        return self._term
-
 
 class PubmedArticle(ArticleBase):
     """
@@ -252,5 +181,81 @@ class PubmedArticle(ArticleBase):
         return response
 
 
+    def __eq__(self, other):
+        return other.title == self.title
+
+
     
 
+
+
+class PubmedSearch(SearchBase):
+    """
+    """
+    def __init__(self, term):
+        params = dict()
+        self._term = term
+        self._page = 1
+        params = dict()
+        params['term'] = term
+        params['page'] = 1
+        response = requests.get('https://pubmed.ncbi.nlm.nih.gov/',params=params)
+        self.reponse_status = response.status_code
+        if response.status_code < 300:
+            self._page_soup = BeautifulSoup(response.content, 'html.parser')
+            try:
+                total = self._page_soup.find('div',{"class":"results-amount-container"}).find('span').text
+                self.total_search = int(total.replace(",",""))
+            except:
+                self.total_search = None
+        else:
+            self._page_soup = None
+            self.total_search = None
+        
+
+    def get_list_articles(self, interval_requests:int = 2) -> List[PubmedArticle]:
+        if self._page_soup is not None:
+            articles = self._page_soup.find_all('article',{"class":"full-docsum"})
+            links = ["https://pubmed.ncbi.nlm.nih.gov" + article.find('a',{'class':'docsum-title'})['href'] for article in articles]
+            response = list()
+            for link in links:
+                response.append(PubmedArticle(link))
+                time.sleep(interval_requests)
+            return response
+    
+    def get_next_page(self):
+        self._page =self._page + 1
+        params = dict()
+        params['term'] = self._term
+        params['page'] = self._page
+        response = requests.get('https://pubmed.ncbi.nlm.nih.gov/',params=params)
+        self.reponse_status = response.status_code
+        if response.status_code < 300:
+            self._page_soup = BeautifulSoup(response.content, 'html.parser')
+        else:
+            self._page_soup = None
+
+    @property
+    def current_page(self):
+        return self._page
+
+    def go_to_page(self,page: int):
+        if page < 1:
+            raise ValueError('page isn ok')
+        self._page = page
+        params = dict()
+        params['term'] = self._term
+        params['page'] = self._page
+        response = requests.get('https://pubmed.ncbi.nlm.nih.gov/',params=params)
+        self.reponse_status = response.status_code
+        if response.status_code < 300:
+            self._page_soup = BeautifulSoup(response.content, 'html.parser')
+        else:
+            self._page_soup = None
+
+    def __repr__(self) -> str:
+        return f'term: {self._term} / page - {self._page}'
+
+    @property
+    def search_term(self):
+        return self._term
