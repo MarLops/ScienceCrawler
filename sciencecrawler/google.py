@@ -13,6 +13,8 @@ class GoogleSearch(SearchBase):
         self._cites = cites
         self._page = 1
         params = dict()
+        self._start = 0
+        self._language = language
         if term is not None:
             params['q'] = term
             params['hl'] = language
@@ -34,9 +36,9 @@ class GoogleSearch(SearchBase):
 
     def __repr__(self) -> str:
         if self._term is not None:
-            return f'term: {self._term} / page - {self._page}'
+            return f'term: {self._term} / page: {self._page}'
         else:
-            return f'cites: {self._cites} / page - {self._page}'
+            return f'cites: {self._cites} / page: {self._page}'
 
 
     def get_list_articles(self, interval_requests:int = 0.5):
@@ -87,8 +89,38 @@ class GoogleSearch(SearchBase):
         return self._term
           
     def get_next_page(self):
-        pass
+        self._start = self._start + 10
+        self._page = self._page + 1
+        params = dict()
+        if self._term is not None:
+            params['q'] = self._term
+            params['hl'] = self._language
+            params['start'] = self._start
+        else:
+            if self._cites is not None:
+                params['cites'] = self._cites
+        response = requests.get('https://scholar.google.com/scholar',params=params)
+        self.reponse_status = response.status_code
+        if response.status_code < 300:
+            self._page_soup = BeautifulSoup(response.content, 'html.parser')
+        else:
+            self._page_soup = None
 
 
-    def go_to_page(self):
-        pass
+    def go_to_page(self,page: int):
+        self._start = 10*(page - 1)
+        self._page = page
+        params = dict()
+        if self._term is not None:
+            params['q'] = self._term
+            params['hl'] = self._language
+            params['start'] = self._start
+        else:
+            if self._cites is not None:
+                params['cites'] = self._cites
+        response = requests.get('https://scholar.google.com/scholar',params=params)
+        self.reponse_status = response.status_code
+        if response.status_code < 300:
+            self._page_soup = BeautifulSoup(response.content, 'html.parser')
+        else:
+            self._page_soup = None
