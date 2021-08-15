@@ -6,6 +6,67 @@ from bs4 import BeautifulSoup
 from .src.base import SearchBase,ArticleBase
 
 
+class GoogleArticle(ArticleBase):
+    def __init__(self, article_html) -> None:
+        article_response = dict()    
+        self._html = article_html  
+        a_article = article_html.find("h3",{"class":"gs_rt"}).find('a')
+        link = a_article['href']
+        article_response['link'] = link
+        title = a_article.text
+        article_response['title'] = title
+        author = article_html.find('div',{"gs_a"}).text
+        article_response['author'] = author
+        resume = article_html.find('div',{"gs_rs"}).text
+        article_response['resume'] = resume
+        links = article_html.find('div',{"class":"gs_fl"}).find_all('a')
+        article_response['cited'] = None
+        article_response['link_html'] = None
+        for link in links:
+            try:
+                if  "cites" in link['href']:
+                    cited = link['href'].split('&')[0].split('cites=')[-1]
+                    article_response['cited'] = GoogleSearch(None,cited)
+                if "scholar.googleuser" in link['href']:
+                    link_cache = link['href']
+                    article_response['link_html'] = str(requests.get(link_cache).content)
+            except Exception as ex: 
+                pass
+        self._data = article_response
+
+    @property
+    def doi(self):
+        return None
+
+    @property
+    def title(self):
+        return self._data['title']
+
+    @property
+    def authors(self):
+        return self._data['author']
+
+    def get_references(self):
+        return self._data['cited']
+
+    def to_json(self):
+        return self._data
+
+    @property
+    def resume(self):
+        return self._data['resume']
+
+    @property
+    def link_article(self):
+        return self._data['link']
+
+    @property
+    def content_page(self):
+        return self._data['link_html']
+
+    def __repr__(self) -> str:
+        return f'GoogleArticle : {self._data["title"]}'
+
 class GoogleSearch(SearchBase):
     def __init__(self, term, cites = None, language = 'en-us'):
         params = dict()
@@ -41,41 +102,20 @@ class GoogleSearch(SearchBase):
             return f'cites: {self._cites} / page: {self._page}'
 
 
-    def get_list_articles(self, interval_requests:int = 0.5):
+    def get_list_articles(self, interval_requests:int = 0.5) -> List[GoogleArticle]:
         if self._page_soup is not None:
             div_main = self._page_soup.find('div',{"id":"gs_res_ccl_mid"})
-            articles = div_main.find_all('div',{"class":"gs_ri"})
-            response = list()
-            for article in articles:
-                try:
-                    article_response = dict()
-                    
-                    a_article = article.find("h3",{"class":"gs_rt"}).find('a')
-                    link = a_article['href']
-                    article_response['link'] = link
-                    title = a_article.text
-                    article_response['title'] = title
-
-                    author = article.find('div',{"gs_a"}).text
-                    article_response['author'] = author
-                    resume = article.find('div',{"gs_rs"}).text
-                    article_response['resume'] = resume
-                    links = article.find('div',{"class":"gs_fl"}).find_all('a')
-                    for link in links:
-                        try:
-                            if  "cites" in link['href']:
-                                cited = link['href'].split('&')[0].split('cites=')[-1]
-                                article_response['cited'] = GoogleSearch(None,cited)
-                            if "scholar.googleuser" in link['href']:
-                                link_cache = link['href']
-                                article_response['link_html'] = str(requests.get(link_cache).content)
-                        except Exception as ex: 
-                            print(ex)
-                    time.sleep(interval_requests)
-                    response.append(article_response)
-                except:
-                    pass
-            return response
+            if div_main is not None:
+                articles = div_main.find_all('div',{"class":"gs_ri"})
+                response = list()
+                for article in articles:
+                    try:
+                        response.append(GoogleArticle(article))
+                        time.sleep(interval_requests)
+                    except:
+                        pass
+                return response
+        return None
 
     @property
     def total_search(self):
@@ -92,10 +132,10 @@ class GoogleSearch(SearchBase):
         self._start = self._start + 10
         self._page = self._page + 1
         params = dict()
+        params['start'] = self._start
         if self._term is not None:
             params['q'] = self._term
             params['hl'] = self._language
-            params['start'] = self._start
         else:
             if self._cites is not None:
                 params['cites'] = self._cites
@@ -111,10 +151,10 @@ class GoogleSearch(SearchBase):
         self._start = 10*(page - 1)
         self._page = page
         params = dict()
+        params['start'] = self._start
         if self._term is not None:
             params['q'] = self._term
             params['hl'] = self._language
-            params['start'] = self._start
         else:
             if self._cites is not None:
                 params['cites'] = self._cites
