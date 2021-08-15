@@ -53,3 +53,58 @@ information = article.to_json()
 ```
 
 
+
+
+## Google
+
+#### Search by term
+
+```python
+from sciencecrawler.google import GoogleSearch
+search_page = GoogleSearch("Covid")
+
+#get current page
+search_page.current_page
+
+# get list of articles from current page
+articles_page_one = search_page.get_list_articles()
+
+# get to next page
+search_page.get_next_page()
+
+#get list of artciles from page two
+articles_page_two = search_page.get_list_articles()
+
+#go to page 5
+search_page.go_to_page(5)
+```
+
+
+#### Get article'information
+
+```python
+from sciencecrawler.pubmed import GoogleSearch
+search_page = GoogleSearch("Covid")
+article_one =  search_page.get_list_articles()[0]
+
+#title
+print(article_one.title)
+
+#authors
+print(article.authors)
+
+#resume
+print(article.resume)
+
+
+# get all references articles
+refe = article.get_references()
+
+# get first article
+article_refe = refe.get_list_articles()[0]
+
+#get all information as json
+information = article.to_json()
+```
+
+
