@@ -16,14 +16,14 @@ class PubmedArticle(ArticleBase):
         self._infos = self._page_soup.find('div',{"id":"full-view-heading"})
         self.url = url
 
-    @functools.cached_property
+
     def publication_type(self):
         try:
             return self._infos.find('div',{"class":"publication-type"}).text
         except:
-            return None
+            return ''
 
-    @functools.cached_property
+
     def journal(self):
        return  self._infos.find('button',{"id":"full-view-journal-trigger"})['title']
 
@@ -47,22 +47,27 @@ class PubmedArticle(ArticleBase):
 
     @property
     def date(self):
-        return self._infos.find('span',{"class":"secondary-date"}).text.strip()
+        try:
+            return self._infos.find('span',{"class":"secondary-date"}).text.strip()
+        except:
+            return ''
 
-    @functools.cached_property
+
     def cited_number(self):
         cited =  self._page_soup.find('div',{"id":"citedby"})
         return cited.find('em',{"class":"amount"}).text
 
-    @functools.cached_property
     def cited_articles(self):
-        cited =  self._page_soup.find('div',{"id":"citedby"})
-        response = list()
-        for art in cited.find_all('li',{"class":"full-docsum"}):
-            response.append(art.find('a',{"class":"docsum-title"}).text.strip())
-        return response
+        try:
+            cited =  self._page_soup.find('div',{"id":"citedby"})
+            response = list()
+            for art in cited.find_all('li',{"class":"full-docsum"}):
+                response.append(art.find('a',{"class":"docsum-title"}).text.strip())
+            return response
+        except:
+            return ''
 
-    @functools.cached_property
+
     def affiliation(self):
         div_aff = self._page_soup.find('div',{"id":"full-view-expanded-authors"})
         lis = div_aff.find_all('li')
@@ -74,7 +79,7 @@ class PubmedArticle(ArticleBase):
         return response
 
     
-    @functools.cached_property
+
     def author_affilition(self):
         authors = self.authors
         affilition = self.affiliation
@@ -90,25 +95,24 @@ class PubmedArticle(ArticleBase):
 
 
 
-    @functools.cached_property
+
     def abstract(self):
         try:
             abstract = self._page_soup.find('div',{"id":"abstract"})
             abstract_text = abstract.find('div',{"id":"enc-abstract"}).find_all('p')
             return "<sep>".join([i.text.replace("\n","").strip() for i in abstract_text])
         except:
-            return None
+            return ''
 
-    @functools.cached_property
     def keywords(self):
         try:
             abstract = self._page_soup.find('div',{"id":"abstract"})
             keywords = abstract.findChildren('p')[-1].text.replace("\n","").strip()
             if "Keywords: " in keywords:
                 return keywords
-            return None
+            return ''
         except:
-            return None
+            return ''
 
     def __repr__(self) -> str:
         return f'Tile: {self.title} | url : {self.url}' 
@@ -117,16 +121,19 @@ class PubmedArticle(ArticleBase):
         return f'Tile: {self.title} | url : {self.url}' 
 
     def get_references_name(self) -> List[str]:
-        url_reference = self.url + "/references/"
-        references = requests.get(url_reference)
-        if references.status_code >= 300:
-            raise Exception('No references')
-        page_soup_references = BeautifulSoup(references.content,'html.parser')
-        div_main = page_soup_references.find('div',{"id":"full-references-list"})
-        ols = div_main.find('ol',{"id":"full-references-list-1"}).find_all('ol')
-        if len(ols) < 1:
-            return None
-        return [i.find('li',{'class':"skip-numbering"}).text.replace("\n","").split("  -   ")[0].strip() for i in ols]
+        try:
+            url_reference = self.url + "/references/"
+            references = requests.get(url_reference)
+            if references.status_code >= 300:
+                raise Exception('No references')
+            page_soup_references = BeautifulSoup(references.content,'html.parser')
+            div_main = page_soup_references.find('div',{"id":"full-references-list"})
+            ols = div_main.find('ol',{"id":"full-references-list-1"}).find_all('ol')
+            if len(ols) < 1:
+                return ''
+            return [i.find('li',{'class':"skip-numbering"}).text.replace("\n","").split("  -   ")[0].strip() for i in ols]
+        except:
+            return ''
         
     
     def get_references(self,interval_requests: int=2) -> List:
@@ -138,7 +145,7 @@ class PubmedArticle(ArticleBase):
         div_main = page_soup_references.find('div',{"id":"full-references-list"})
         ols = div_main.find('ol',{"id":"full-references-list-1"}).find_all('ol')
         if len(ols) < 1:
-            return None
+            return ''
         response = list()
         print(f'Number references - {len(ols)}')
         for ol in ols:
@@ -157,26 +164,26 @@ class PubmedArticle(ArticleBase):
                 pass
         return response
 
-    @functools.cached_property
+
     def conflict_of_interest(self):
         div_conflict = self._page_soup.find('div',{"id":"conflict-of-interest"})
         if div_conflict is None:
-            return None
+            return ''
         return div_conflict.find('p').text
 
     def to_json(self):
         response = dict()
-        response['authors'] = self.author_affilition
+        response['authors'] = self.authors
         response['title'] = self.title
         response['references'] = self.get_references_name()
         response['doi'] = self.doi
-        response['journal'] = self.journal
-        response['type'] = self.publication_type
+        response['journal'] = self.journal()
+        response['type'] = self.publication_type()
         response['date'] = self.date
-        response['abstract'] = self.abstract
-        response['conflict'] = self.conflict_of_interest
-        response['cited_articles'] = self.cited_articles
-        response['keywords'] = self.keywords
+        response['abstract'] = self.abstract()
+        response['conflict'] = self.conflict_of_interest()
+        response['cited_articles'] = self.cited_articles()
+        response['keywords'] = self.keywords()
         response['url'] = self.url
         return response
 
