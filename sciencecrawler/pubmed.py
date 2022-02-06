@@ -1,4 +1,6 @@
+import datetime
 import functools
+import re
 import time
 from typing import List
 import requests
@@ -14,6 +16,12 @@ class PubmedArticle(ArticleBase):
         page_detail = requests.get(url)
         self._page_soup = BeautifulSoup(page_detail.content, 'html.parser')
         self._infos = self._page_soup.find('div',{"id":"full-view-heading"})
+        doi = self.doi.replace("doi: ","").strip()[:-1]
+        response = requests.get(f'https://api.crossref.org/works/{doi}')
+        if response.status_code < 400:
+            self._metadada = response.json()
+        else:
+            self._metadada = None
         self.url = url
 
 
@@ -156,7 +164,6 @@ class PubmedArticle(ArticleBase):
                 else:
                     href = ahrefs[0]['href']
                 if "doi" not in  href: 
-                    print("https://pubmed.ncbi.nlm.nih.gov" + href)
                     page = PubmedArticle("https://pubmed.ncbi.nlm.nih.gov" + href)
                     response.append(page)
                     time.sleep(interval_requests)
@@ -173,6 +180,8 @@ class PubmedArticle(ArticleBase):
 
     def to_json(self):
         response = dict()
+        response['id'] = self.doi.replace("doi: ","").replace("/","").replace(".","").lower().strip()
+        response['pubmed_url'] = self.url
         response['authors'] = self.authors
         response['title'] = self.title
         response['references'] = self.get_references_name()
@@ -184,7 +193,16 @@ class PubmedArticle(ArticleBase):
         response['conflict'] = self.conflict_of_interest()
         response['cited_articles'] = self.cited_articles()
         response['keywords'] = self.keywords()
-        response['url'] = self.url
+        response['pubmed_url'] = self.url
+        response['metadado']  = None
+        if self._metadada is not None:
+            response['metadado'] = dict()
+            response['metadado']['funder'] = list()
+            if "funder" in self._metadada["message"]:
+                response['metadado']['funder'] = self._metadada["message"]["funder"]
+            response['metadado']['type'] = self._metadada["message"]["type"]
+            response['metadado']['publisher'] = self._metadada["message"]["publisher"]
+            response['metadado']['date'] = datetime.datetime.fromtimestamp(int(self._metadada["message"]["created"]["timestamp"]/1000)).strftime("%Y-%m-%d")
         return response
 
 
