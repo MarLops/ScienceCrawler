@@ -1,4 +1,5 @@
 from os import stat
+from tkinter.messagebox import NO
 from neo4j import GraphDatabase
 
 class Neo4jScienceCrawler:
@@ -20,27 +21,51 @@ class Neo4jScienceCrawler:
         result = tx.run("CREATE CONSTRAINT constraint_article_name ON (n:Article) ASSERT n.title IS UNIQUE")
         return result
 
+    def check_exist(self,article):
+        result = None
+        with self.driver.session() as session:
+            result = session.write_transaction(self._check_article_exist, article)
+        return result
+
     def create_article(self, article):
         with self.driver.session() as session:
-            greeting = session.write_transaction(self._create_article, article)
-            greeting = session.write_transaction(self._create_author, article)
+            if session.write_transaction(self._check_article_exist,article['id']) == None:
+                greeting = session.write_transaction(self._create_article, article)
+                greeting = session.write_transaction(self._create_author, article)
             
+    def create_connection_ref(self,id_article,article_cited):
+        with self.driver.session() as session:
+            if session.write_transaction(self._check_article_exist,article_cited['id']) == None:
+                self.create_article(article_cited)
+            greeting = session.write_transaction(self._check_create_connect, id_article,article_cited['id'])
+           
     @staticmethod
     def _create_article(tx, article):
-        result = tx.run("MERGE (a:Article {_id: $id,title: $title,doi : $doi,abstract: $abstract }) RETURN a ",id=article['id'],title=article['title'],doi=article['doi'],abstract=article['abstract'])
+        result = tx.run("MERGE (a:Article {_id: $id,title: $title,doi : $doi,abstract: $abstract, pubmed_url: $url}) RETURN a ",id=article['id'],title=article['title'],doi=article['doi'],abstract=article['abstract'],url=article['pubmed_url'])
+        if article['metadado'] is not None:
+            metadado = article['metadado']
+            try:
+                result = tx.run("MATCH (a:Article {_id: $id}) SET a.date = date($date), a.type = $type, a.publisher = $publisher  RETURN a ",id=article['id'],
+                                title=article['title'],date=metadado['date'],type=metadado['type'],publisher=metadado['publisher'])
+            except Exception as ex:
+                print(ex)
         return result
 
     @staticmethod
-    def _check_article_exist(tx, article):
-        result = tx.run("MATCH (a:Article {id: '$id'}) RETURN a ", 
-                        id=article['id'])
-        return result
-
+    def _check_article_exist(tx, id):
+        text = 'MATCH (a:Article {_id:"' +  id + '"}) RETURN a._id'
+        result = tx.run(text)
+        if result.single() is None:
+            return None
+        try:
+            return result.single()[0]
+        except:
+            return None
 
     @staticmethod
-    def _check_create_connect(tx, article,article_cited):
-        result = tx.run("MATCH (a:Article {id: $id}) (b:Article {id : $id_cited} MERGE (a)-[p:CITED]->(b) RETURN p", 
-                        id=article['id'],id_cited=article_cited['id'])
+    def _check_create_connect(tx, id_article,id_article_cited):
+        result = tx.run("MATCH (a:Article {_id: $id}), (b:Article {_id: $id_cited}) MERGE (a)-[p:CITED]->(b) RETURN p", 
+                        id=id_article,id_cited=id_article_cited)
         return result
 
     @staticmethod
