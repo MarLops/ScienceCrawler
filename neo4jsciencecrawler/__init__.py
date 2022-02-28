@@ -32,7 +32,13 @@ class Neo4jScienceCrawler:
             if session.write_transaction(self._check_article_exist,article['id']) == None:
                 greeting = session.write_transaction(self._create_article, article)
                 greeting = session.write_transaction(self._create_author, article)
-            
+
+    def change_metadado(self, id_article,metadado,metadado_value):
+        with self.driver.session() as session:
+            if session.write_transaction(self._check_article_exist,id_article) == None:
+                greeting = session.write_transaction(self._change_metadado,id_article,metadado,metadado_value)
+
+        
     def create_connection_ref(self,id_article,article_cited):
         with self.driver.session() as session:
             if session.write_transaction(self._check_article_exist,article_cited['id']) == None:
@@ -41,7 +47,7 @@ class Neo4jScienceCrawler:
            
     @staticmethod
     def _create_article(tx, article):
-        result = tx.run("MERGE (a:Article {_id: $id,title: $title,doi : $doi,abstract: $abstract, pubmed_url: $url}) RETURN a ",id=article['id'],title=article['title'],doi=article['doi'],abstract=article['abstract'],url=article['pubmed_url'])
+        result = tx.run("MERGE (a:Article {_id: $id,title: $title,doi : $doi,abstract: $abstract, pubmed_url: $url, is_covid: $covid}) RETURN a ",id=article['id'],title=article['title'],doi=article['doi'],abstract=article['abstract'],url=article['pubmed_url'],covid=article['is_covid'])
         if article['metadado'] is not None:
             metadado = article['metadado']
             try:
@@ -49,6 +55,12 @@ class Neo4jScienceCrawler:
                                 title=article['title'],date=metadado['date'],type=metadado['type'],publisher=metadado['publisher'])
             except Exception as ex:
                 print(ex)
+        return result
+
+
+    @staticmethod
+    def _change_metadado(tx, _id,metadado,metadado_value):
+        result = tx.run("MATCH (a:Article {_id: $id}) SET a." +metadado + "= $value RETURN a ",id=_id,value=metadado_value)
         return result
 
     @staticmethod
@@ -70,9 +82,23 @@ class Neo4jScienceCrawler:
 
     @staticmethod
     def _create_author(tx,article):
-        for author in article['authors']:
-            id_author = author['author'].lower().replace(" ","")
-            result = tx.run("MERGE (n:Author {id: $id, name: $name})", 
-                        id=id_author,name=author['author'])
-            result = tx.run("MATCH (a:Article {_id:$id}), (b:Author {id:$idA}) MERGE (a)-[p:WRITE_BY]-(b) RETURN a,b",id=article['id'],idA=id_author)
+        if article['metadado'] is not None:
+            if article['metadado']['authors'] is not None:
+                for author in article['metadado']['authors']:
+                    id_author = author['family'].lower().replace(" ","") + author['given'].lower().replace(" ","")
+                    result = tx.run("MERGE (n:Author {id: $id, name: $name})", 
+                                id=id_author,name=author['family'] + author['given'])
+                    result = tx.run("MATCH (a:Article {_id:$id}), (b:Author {id:$idA}) MERGE (a)-[p:WRITE_BY]-(b) RETURN a,b",id=article['id'],idA=id_author)
+            else:
+                for author in article['authors']:
+                    id_author = author['author'].lower().replace(" ","")
+                    result = tx.run("MERGE (n:Author {id: $id, name: $name})", 
+                                id=id_author,name=author['author'])
+                    result = tx.run("MATCH (a:Article {_id:$id}), (b:Author {id:$idA}) MERGE (a)-[p:WRITE_BY]-(b) RETURN a,b",id=article['id'],idA=id_author)
+        else:
+            for author in article['authors']:
+                id_author = author['author'].lower().replace(" ","")
+                result = tx.run("MERGE (n:Author {id: $id, name: $name})", 
+                            id=id_author,name=author['author'])
+                result = tx.run("MATCH (a:Article {_id:$id}), (b:Author {id:$idA}) MERGE (a)-[p:WRITE_BY]-(b) RETURN a,b",id=article['id'],idA=id_author)
         

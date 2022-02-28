@@ -203,6 +203,10 @@ class PubmedArticle(ArticleBase):
             response['metadado']['type'] = self._metadada["message"]["type"]
             response['metadado']['publisher'] = self._metadada["message"]["publisher"]
             response['metadado']['date'] = datetime.datetime.fromtimestamp(int(self._metadada["message"]["created"]["timestamp"]/1000)).strftime("%Y-%m-%d")
+            if 'authors' in response['metadado']:
+                response['metadado']['authors'] = self._metadada["message"]['author']
+            else:
+                response['metadado']['authors'] = None
         return response
 
 
