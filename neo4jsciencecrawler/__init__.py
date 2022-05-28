@@ -53,7 +53,7 @@ class Neo4jScienceCrawler:
             metadado = article['metadado']
             try:
                 result = tx.run("MATCH (a:Article {_id: $id}) SET a.date = date($date), a.type = $type, a.publisher = $publisher  RETURN a ",id=article['id'],
-                                title=article['title'],date=metadado['date'],type=metadado['type'],publisher=metadado['publisher'])
+                                title=article['title'],date=metadado['date'],type=article['type'],publisher=metadado['publisher'])
             except Exception as ex:
                 print(ex)
         return result
