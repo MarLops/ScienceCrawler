@@ -33,6 +33,7 @@ class Neo4jScienceCrawler:
                 greeting = session.write_transaction(self._create_article, article)
                 greeting = session.write_transaction(self._create_author, article)
 
+
     def change_metadado(self, id_article,metadado,metadado_value):
         with self.driver.session() as session:
             if session.write_transaction(self._check_article_exist,id_article) == None:
@@ -47,7 +48,7 @@ class Neo4jScienceCrawler:
            
     @staticmethod
     def _create_article(tx, article):
-        result = tx.run("MERGE (a:Article {_id: $id,title: $title,doi : $doi,abstract: $abstract, pubmed_url: $url, is_covid: $covid}) RETURN a ",id=article['id'],title=article['title'],doi=article['doi'],abstract=article['abstract'],url=article['pubmed_url'],covid=article['is_covid'])
+        result = tx.run("MERGE (a:Article {_id: $id,title: $title,doi : $doi,abstract: $abstract, pubmed_url: $url}) RETURN a ",id=article['id'],title=article['title'],doi=article['doi'],abstract=article['abstract'],url=article['pubmed_url'])
         if article['metadado'] is not None:
             metadado = article['metadado']
             try:
