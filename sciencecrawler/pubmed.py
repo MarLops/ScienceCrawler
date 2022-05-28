@@ -5,7 +5,9 @@ import time
 from typing import List
 import requests
 from bs4 import BeautifulSoup
-from .src.base import SearchBase,ArticleBase
+from .src.base import SearchBase,ArticleBase,ArticleCovidHidro
+
+
 
 
 
@@ -14,6 +16,7 @@ class PubmedArticle(ArticleBase):
     """
     def __init__(self, url):
         page_detail = requests.get(url)
+        print(url)
         self._page_soup = BeautifulSoup(page_detail.content, 'html.parser')
         self._infos = self._page_soup.find('div',{"id":"full-view-heading"})
         doi = self.doi.replace("doi: ","").strip()[:-1]
@@ -248,8 +251,11 @@ class PubmedSearch(SearchBase):
             links = ["https://pubmed.ncbi.nlm.nih.gov" + article.find('a',{'class':'docsum-title'})['href'] for article in articles]
             response = list()
             for link in links:
-                response.append(PubmedArticle(link))
-                time.sleep(interval_requests)
+                try:
+                    response.append(PubmedArticle(link))
+                    time.sleep(interval_requests)
+                except Exception as ex:
+                    continue
             return response
     
     def get_next_page(self):
