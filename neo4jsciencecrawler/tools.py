@@ -4,4 +4,8 @@ def check_article(article,words):
             return True
         if word.lower() in article['abstract'].lower():
             return True
+        if word.lower() in article['substances'].lower():
+            return True
+        if word.lower() in article['mesh'].lower():
+            return True
     return False
