@@ -46,6 +46,8 @@ class Neo4jScienceCrawler:
                 self.create_article(article_cited)
                 greeting = session.write_transaction(self._create_author, article_cited)
                 greeting = session.write_transaction(self._create_journal, article_cited)
+                greeting = session.write_transaction(self._check_create_connect, id_article,article_cited['id'])
+                
            
     @staticmethod
     def _create_article(tx, article):
@@ -62,13 +64,12 @@ class Neo4jScienceCrawler:
 
     @staticmethod
     def _create_journal(tx, article):
-        if article['metadado'] is not None:
-            if article['metadado']['authors'] is not None:
-                journal = ''
-                id_journal = journal.lower()
-                result = tx.run("MERGE (n:Journal {id: $id, name: $name})", 
-                            id=id_journal,name=id_journal)
-                result = tx.run("MATCH (a:Article {_id:$id}), (b:Journal {id:$idA}) MERGE (a)-[p:PUBLISH]-(b) RETURN a,b",id=article['id'],idA=id_journal)
+        if article['journal'] is not None:
+            journal = article['journal']
+            id_journal = journal.lower()
+            result = tx.run("MERGE (n:Journal {id: $id, name: $name})", 
+                        id=id_journal,name=id_journal)
+            result = tx.run("MATCH (a:Article {_id:$id}), (b:Journal {id:$idA}) MERGE (a)-[p:PUBLISH]-(b) RETURN a,b",id=article['id'],idA=id_journal)
           
     
 
