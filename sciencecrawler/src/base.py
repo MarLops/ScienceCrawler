@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod, abstractproperty
 import keyword
 from typing import List
-from pydantic import BaseModel
+
 
 
 class SearchBase(ABC):
@@ -54,22 +54,3 @@ class ArticleBase(ABC):
         pass
 
 
-
-
-class ArticleOutput(BaseModel):
-    id : str
-    url: str   
-    authors : List[str]
-    title : str
-    doi : str
-    abstract : str
-    references : List[str]
-    date : str
-    type_article : str
-    journal : str
-    keywords : List[str]
-    funder : List[str]
-
-class ArticleCovidHidro(ArticleOutput):
-    is_covid : bool
-    is_hidro : bool

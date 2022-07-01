@@ -32,7 +32,7 @@ class Neo4jScienceCrawler:
             if session.write_transaction(self._check_article_exist,article['id']) == None:
                 greeting = session.write_transaction(self._create_article, article)
                 greeting = session.write_transaction(self._create_author, article)
-
+                greeting = session.write_transaction(self._create_journal, article)
 
     def change_metadado(self, id_article,metadado,metadado_value):
         with self.driver.session() as session:
@@ -44,7 +44,8 @@ class Neo4jScienceCrawler:
         with self.driver.session() as session:
             if session.write_transaction(self._check_article_exist,article_cited['id']) == None:
                 self.create_article(article_cited)
-            greeting = session.write_transaction(self._check_create_connect, id_article,article_cited['id'])
+                greeting = session.write_transaction(self._create_author, article_cited)
+                greeting = session.write_transaction(self._create_journal, article_cited)
            
     @staticmethod
     def _create_article(tx, article):
@@ -58,6 +59,18 @@ class Neo4jScienceCrawler:
                 print(ex)
         return result
 
+
+    @staticmethod
+    def _create_journal(tx, article):
+        if article['metadado'] is not None:
+            if article['metadado']['authors'] is not None:
+                journal = ''
+                id_journal = journal.lower()
+                result = tx.run("MERGE (n:Journal {id: $id, name: $name})", 
+                            id=id_journal,name=id_journal)
+                result = tx.run("MATCH (a:Article {_id:$id}), (b:Journal {id:$idA}) MERGE (a)-[p:PUBLISH]-(b) RETURN a,b",id=article['id'],idA=id_journal)
+          
+    
 
     @staticmethod
     def _change_metadado(tx, _id,metadado,metadado_value):

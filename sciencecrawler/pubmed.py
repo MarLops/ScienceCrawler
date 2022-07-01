@@ -5,7 +5,7 @@ import time
 from typing import List
 import requests
 from bs4 import BeautifulSoup
-from .src.base import SearchBase,ArticleBase,ArticleCovidHidro
+from .src.base import SearchBase,ArticleBase
 
 
 
@@ -16,7 +16,6 @@ class PubmedArticle(ArticleBase):
     """
     def __init__(self, url):
         page_detail = requests.get(url)
-        print(url)
         self._page_soup = BeautifulSoup(page_detail.content, 'html.parser')
         self._infos = self._page_soup.find('div',{"id":"full-view-heading"})
         doi = self.doi.replace("doi: ","").strip()[:-1]
@@ -105,12 +104,34 @@ class PubmedArticle(ArticleBase):
         return response
 
 
+    @property
+    def substance(self):
+        return self.get_substance()
 
+    def get_substance(self):
+        try:
+            abstract = self._page_soup.find('div',{"id":"substances"})
+            abstract_text = abstract.find_all('button')
+            return "<sep>".join([i.text.replace("\n","").strip() for i in abstract_text])
+        except:
+            return ''
+
+    @property
+    def mesh(self):
+        return self.get_mesh()
+
+    def get_mesh(self):
+        try:
+            abstract = self._page_soup.find('div',{"id":"mesh-terms"})
+            abstract_text = abstract.find_all('button')
+            return "<sep>".join([i.text.replace("\n","").strip() for i in abstract_text])
+        except:
+            return ''
 
     def abstract(self):
         try:
             abstract = self._page_soup.find('div',{"id":"abstract"})
-            abstract_text = abstract.find('div',{"id":"enc-abstract"}).find_all('p')
+            abstract_text = abstract.findAll('div',{"id":"enc-abstract"}).find_all('p')
             return "<sep>".join([i.text.replace("\n","").strip() for i in abstract_text])
         except:
             return ''
@@ -190,6 +211,8 @@ class PubmedArticle(ArticleBase):
         response['references'] = self.get_references_name()
         response['doi'] = self.doi
         response['journal'] = self.journal()
+        response['substances'] = self.get_substance()
+        response['mesh'] = self.get_mesh()
         response['type'] = self.publication_type()
         response['date'] = self.date
         response['abstract'] = self.abstract()
