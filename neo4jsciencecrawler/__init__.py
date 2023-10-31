@@ -67,8 +67,8 @@ class Neo4jScienceCrawler:
         if article['journal'] is not None:
             journal = article['journal']
             id_journal = journal.lower()
-            result = tx.run("MERGE (n:Journal {id: $id, name: $name})", 
-                        id=id_journal,name=id_journal)
+            if not _check_journal_exist(tx,id_journal):
+                result = tx.run("MERGE (n:Journal {id: $id, name: $name})", id=id_journal,name=id_journal)
             result = tx.run("MATCH (a:Article {_id:$id}), (b:Journal {id:$idA}) MERGE (a)-[p:PUBLISH]-(b) RETURN a,b",id=article['id'],idA=id_journal)
           
     
@@ -90,6 +90,28 @@ class Neo4jScienceCrawler:
             return None
 
     @staticmethod
+    def _check_journal_exist(tx,id):
+        text = 'MATCH (a:Journal {_id:"' +  id + '"}) RETURN a._id'
+        result = tx.run(text)
+        if result.single() is None:
+            return None
+        try:
+            return result.single()[0]
+        except:
+            return None
+
+    @staticmethod
+    def _check_author_exist(tx, id):
+        text = 'MATCH (a:Author {_id:"' +  id + '"}) RETURN a._id'
+        result = tx.run(text)
+        if result.single() is None:
+            return None
+        try:
+            return result.single()[0]
+        except:
+            return None
+
+    @staticmethod
     def _check_create_connect(tx, id_article,id_article_cited):
         result = tx.run("MATCH (a:Article {_id: $id}), (b:Article {_id: $id_cited}) MERGE (a)-[p:CITED]->(b) RETURN p", 
                         id=id_article,id_cited=id_article_cited)
@@ -101,19 +123,20 @@ class Neo4jScienceCrawler:
             if article['metadado']['authors'] is not None:
                 for author in article['metadado']['authors']:
                     id_author = author['family'].lower().replace(" ","") + author['given'].lower().replace(" ","")
-                    result = tx.run("MERGE (n:Author {id: $id, name: $name})", 
-                                id=id_author,name=author['family'] + author['given'])
+                    if not _check_author_exist(tx,id_author):
+                        result = tx.run("MERGE (n:Author {id: $id, name: $name})", id=id_author,name=author['family'] + author['given'])
                     result = tx.run("MATCH (a:Article {_id:$id}), (b:Author {id:$idA}) MERGE (a)-[p:WRITE_BY]-(b) RETURN a,b",id=article['id'],idA=id_author)
             else:
                 for author in article['authors']:
-                    id_author = author['author'].lower().replace(" ","")
-                    result = tx.run("MERGE (n:Author {id: $id, name: $name})", 
-                                id=id_author,name=author['author'])
+                    id_author = author['author'].lower().replace(" ","").strip()
+                    if not _check_author_exist(tx,id_author):
+                        result = tx.run("MERGE (n:Author {id: $id, name: $name})", id=id_author,name=author['family'] + author['given'])
                     result = tx.run("MATCH (a:Article {_id:$id}), (b:Author {id:$idA}) MERGE (a)-[p:WRITE_BY]-(b) RETURN a,b",id=article['id'],idA=id_author)
         else:
             for author in article['authors']:
-                id_author = author['author'].lower().replace(" ","")
-                result = tx.run("MERGE (n:Author {id: $id, name: $name})", 
-                            id=id_author,name=author['author'])
+                id_author = author['author'].lower().replace(" ","").strip()
+                if not _check_author_exist(tx,id_author):
+                    result = tx.run("MERGE (n:Author {id: $id, name: $name})", id=id_author,name=author['family'] + author['given'])
+
                 result = tx.run("MATCH (a:Article {_id:$id}), (b:Author {id:$idA}) MERGE (a)-[p:WRITE_BY]-(b) RETURN a,b",id=article['id'],idA=id_author)
         
